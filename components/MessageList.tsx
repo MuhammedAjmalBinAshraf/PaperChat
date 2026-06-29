@@ -48,21 +48,26 @@ export default function MessageList({ code }: MessageListProps) {
 
   // Initial Fetch
   useEffect(() => {
-    async function fetchInitial() {
-      try {
-        const res = await fetch(`/api/messages?code=${code}`);
-        if (res.ok) {
-          const data = await res.json();
+    function fetchInitial() {
+      fetch(`/api/messages?code=${code}`)
+        .then((res) => {
+          if (res.ok) {
+            return res.json();
+          }
+          throw new Error('Failed to fetch');
+        })
+        .then((data) => {
           setMessages(data.messages || []);
           if (data.messages && data.messages.length < 100) {
             setHasMore(false);
           }
-        }
-      } catch (error) {
-        console.error('Failed to fetch initial messages:', error);
-      } finally {
-        setInitialLoading(false);
-      }
+        })
+        .catch((error) => {
+          console.error('Failed to fetch initial messages:', error);
+        })
+        .finally(() => {
+          setInitialLoading(false);
+        });
     }
     fetchInitial();
   }, [code]);
@@ -142,15 +147,19 @@ export default function MessageList({ code }: MessageListProps) {
   useEffect(() => {
     if (!pollingActive) return;
 
-    const interval = setInterval(async () => {
+    const interval = setInterval(() => {
       const currentMessages = messagesRef.current;
       const latestMsg = currentMessages[currentMessages.length - 1];
       const since = latestMsg ? latestMsg.created_at : new Date(0).toISOString();
 
-      try {
-        const res = await fetch(`/api/messages?code=${code}&since=${encodeURIComponent(since)}`);
-        if (res.ok) {
-          const data = await res.json();
+      fetch(`/api/messages?code=${code}&since=${encodeURIComponent(since)}`)
+        .then((res) => {
+          if (res.ok) {
+            return res.json();
+          }
+          throw new Error('Failed to poll');
+        })
+        .then((data) => {
           if (data.messages && data.messages.length > 0) {
             setMessages((prev) => {
               const newMsgs = data.messages.filter(
@@ -160,10 +169,10 @@ export default function MessageList({ code }: MessageListProps) {
               return [...prev, ...newMsgs];
             });
           }
-        }
-      } catch (error) {
-        console.error('Failed to poll new messages:', error);
-      }
+        })
+        .catch((error) => {
+          console.error('Failed to poll new messages:', error);
+        });
     }, 5000);
 
     return () => clearInterval(interval);
@@ -196,17 +205,21 @@ export default function MessageList({ code }: MessageListProps) {
   }, [lastMessageId, initialLoading]);
 
   // Load earlier pagination
-  const loadEarlier = async () => {
+  const loadEarlier = () => {
     if (messages.length === 0 || loadingEarlier) return;
     setLoadingEarlier(true);
 
     const oldestMsg = messages[0];
     const before = oldestMsg.created_at;
 
-    try {
-      const res = await fetch(`/api/messages?code=${code}&before=${encodeURIComponent(before)}`);
-      if (res.ok) {
-        const data = await res.json();
+    fetch(`/api/messages?code=${code}&before=${encodeURIComponent(before)}`)
+      .then((res) => {
+        if (res.ok) {
+          return res.json();
+        }
+        throw new Error('Failed to load older messages');
+      })
+      .then((data) => {
         if (data.messages && data.messages.length > 0) {
           setMessages((prev) => [...data.messages, ...prev]);
           if (data.messages.length < 100) {
@@ -215,12 +228,13 @@ export default function MessageList({ code }: MessageListProps) {
         } else {
           setHasMore(false);
         }
-      }
-    } catch (error) {
-      console.error('Failed to load older messages:', error);
-    } finally {
-      setLoadingEarlier(false);
-    }
+      })
+      .catch((error) => {
+        console.error('Failed to load older messages:', error);
+      })
+      .finally(() => {
+        setLoadingEarlier(false);
+      });
   };
 
   if (initialLoading) {

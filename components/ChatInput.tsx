@@ -18,7 +18,7 @@ export default function ChatInput({ onSendMessage, roomCode }: ChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleSubmit = async (e?: React.FormEvent) => {
+  const handleSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     
     let trimmed = message.trim();
@@ -28,52 +28,57 @@ export default function ChatInput({ onSendMessage, roomCode }: ChatInputProps) {
     setSending(true);
     setUploadError('');
 
-    try {
-      let attachmentUrl = '';
-      let attachmentName = '';
+    const sendMessage = (url: string, name: string) => {
+      onSendMessage(trimmed, url, name)
+        .then(() => {
+          setMessage('');
+          setFile(null);
+          if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+          }
+          // Focus back to input
+          textareaRef.current?.focus();
+        })
+        .catch((error) => {
+          console.error('Failed to send message:', error);
+          const errMsg = error instanceof Error ? error.message : 'Failed to send message.';
+          setUploadError(errMsg);
+        })
+        .finally(() => {
+          setSending(false);
+        });
+    };
 
-      if (file) {
-        const timestamp = Date.now();
-        // Sanitize file name for URL safety
-        const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-        const filePath = `${roomCode}/${timestamp}_${safeName}`;
+    if (file) {
+      const timestamp = Date.now();
+      const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+      const filePath = `${roomCode}/${timestamp}_${safeName}`;
 
-        const { error } = await supabase.storage
-          .from('attachments')
-          .upload(filePath, file);
-
-        if (error) {
-          throw new Error(`File upload failed: ${error.message}`);
-        }
-
-        const { data: urlData } = supabase.storage
-          .from('attachments')
-          .getPublicUrl(filePath);
-
-        attachmentUrl = urlData.publicUrl;
-        attachmentName = file.name;
-
-        // If message body is empty, auto-populate with file name
-        if (!trimmed) {
-          trimmed = `Shared file: ${file.name}`;
-        }
-      }
-
-      await onSendMessage(trimmed, attachmentUrl, attachmentName);
-      setMessage('');
-      setFile(null);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-      
-      // Focus back to input
-      textareaRef.current?.focus();
-    } catch (error) {
-      console.error('Failed to send message:', error);
-      const errMsg = error instanceof Error ? error.message : 'Failed to send message.';
-      setUploadError(errMsg);
-    } finally {
-      setSending(false);
+      supabase.storage
+        .from('attachments')
+        .upload(filePath, file)
+        .then((uploadRes) => {
+          if (uploadRes.error) {
+            throw new Error(`File upload failed: ${uploadRes.error.message}`);
+          }
+          return supabase.storage.from('attachments').getPublicUrl(filePath);
+        })
+        .then((urlData) => {
+          const attachmentUrl = urlData.data.publicUrl;
+          const attachmentName = file.name;
+          if (!trimmed) {
+            trimmed = `Shared file: ${file.name}`;
+          }
+          sendMessage(attachmentUrl, attachmentName);
+        })
+        .catch((error) => {
+          console.error('Failed to upload attachment:', error);
+          const errMsg = error instanceof Error ? error.message : 'File upload failed.';
+          setUploadError(errMsg);
+          setSending(false);
+        });
+    } else {
+      sendMessage('', '');
     }
   };
 

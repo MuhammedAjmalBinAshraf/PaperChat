@@ -27,33 +27,35 @@ export default function RoomPage({ params }: RoomPageProps) {
     }
     setDisplayName(name);
 
-    async function verifyAndRegisterRoom() {
-      try {
-        const res = await fetch(`/api/rooms/${code}`);
-        if (!res.ok) {
-          setRoomNotFound(true);
-        } else {
-          const roomData = await res.json();
+    function verifyAndRegisterRoom() {
+      fetch(`/api/rooms/${code}`)
+        .then((res) => {
+          if (!res.ok) {
+            throw new Error('Room not found');
+          }
+          return res.json();
+        })
+        .then((roomData) => {
           const roomName = roomData.name || `Room ${code}`;
-          // Record visited room in local history
           addToHistory(code, roomName);
-        }
-      } catch (err) {
-        console.error('Error verifying room:', err);
-        setRoomNotFound(true);
-      } finally {
-        setCheckingRoom(false);
-      }
+        })
+        .catch((err) => {
+          console.error('Error verifying room:', err);
+          setRoomNotFound(true);
+        })
+        .finally(() => {
+          setCheckingRoom(false);
+        });
     }
 
     verifyAndRegisterRoom();
   }, [code, router]);
 
-  const handleSendMessage = async (body: string, attachmentUrl?: string, attachmentName?: string) => {
+  const handleSendMessage = (body: string, attachmentUrl?: string, attachmentName?: string) => {
     const uid = getUID();
     const currentName = getDisplayName() || 'Unknown Device';
 
-    const res = await fetch('/api/messages', {
+    return fetch('/api/messages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -66,12 +68,14 @@ export default function RoomPage({ params }: RoomPageProps) {
         attachment_url: attachmentUrl,
         attachment_name: attachmentName,
       }),
-    });
-
-    if (!res.ok) {
-      const errorData = await res.json();
-      throw new Error(errorData.error || 'Failed to send message');
-    }
+    })
+      .then((res) => {
+        if (!res.ok) {
+          return res.json().then((errorData) => {
+            throw new Error(errorData.error || 'Failed to send message');
+          });
+        }
+      });
   };
 
   if (checkingRoom) {

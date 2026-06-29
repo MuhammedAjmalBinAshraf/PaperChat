@@ -1,0 +1,5 @@
+# Target older browsers (e.g. Kindle Experimental Browser / Safari 5.1 Webkit)
+chrome 30
+safari 5.1
+firefox 30
+ie 11

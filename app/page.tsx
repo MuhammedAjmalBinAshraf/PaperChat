@@ -29,50 +29,52 @@ export default function HomePage() {
     }
   }, [router]);
 
-  const handleCreateRoom = async () => {
+  const handleCreateRoom = () => {
     setJoining(true);
     setJoinError('');
-    try {
-      const res = await fetch('/api/rooms', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: `${displayName}'s Room` }),
+    
+    fetch('/api/rooms', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: `${displayName}'s Room` }),
+    })
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error('Failed to create room');
+        }
+        return res.json();
+      })
+      .then((data) => {
+        router.push(`/room/${data.code}`);
+      })
+      .catch((err) => {
+        console.error(err);
+        setJoinError('Failed to create room. Please try again.');
+        setJoining(false);
       });
-      
-      if (!res.ok) {
-        throw new Error('Failed to create room');
-      }
-
-      const data = await res.json();
-      router.push(`/room/${data.code}`);
-    } catch (err) {
-      console.error(err);
-      setJoinError('Failed to create room. Please try again.');
-      setJoining(false);
-    }
   };
 
-  const handleJoinRoom = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
+  const handleJoinRoom = () => {
     if (pin.length !== 4 || joining) return;
 
     setJoining(true);
     setJoinError('');
-    try {
-      const res = await fetch(`/api/rooms/${pin}`);
-      if (!res.ok) {
-        if (res.status === 404) {
-          throw new Error('Room not found');
-        }
-        throw new Error('Failed to join room');
-      }
 
-      router.push(`/room/${pin}`);
-    } catch (err) {
-      const errMsg = err instanceof Error ? err.message : 'Error joining room';
-      setJoinError(errMsg);
-      setJoining(false);
-    }
+    fetch(`/api/rooms/${pin}`)
+      .then((res) => {
+        if (!res.ok) {
+          if (res.status === 404) {
+            throw new Error('Room not found');
+          }
+          throw new Error('Failed to join room');
+        }
+        router.push(`/room/${pin}`);
+      })
+      .catch((err) => {
+        const errMsg = err instanceof Error ? err.message : 'Error joining room';
+        setJoinError(errMsg);
+        setJoining(false);
+      });
   };
 
   if (loading) {
