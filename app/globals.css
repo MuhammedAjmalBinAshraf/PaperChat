@@ -1,0 +1,20 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+*, *::before, *::after {
+  transition: none !important;
+  animation: none !important;
+}
+
+body {
+  font-family: Georgia, 'Times New Roman', serif;
+  background: #ffffff;
+  color: #111111;
+  -webkit-text-size-adjust: 100%;
+}
+
+a {
+  color: #1a3a6b;
+  text-decoration: underline;
+}
