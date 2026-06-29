@@ -134,5 +134,47 @@ if (typeof window !== 'undefined') {
     (window as any).AbortController = AbortControllerPolyfill;
     (window as any).AbortSignal = AbortSignalPolyfill;
   }
+
+  // 6. TextEncoder & TextDecoder polyfills (required by Next.js App Router HTML streaming/hydration)
+  if (typeof window.TextEncoder === 'undefined') {
+    const TextEncoderPolyfill = function () {};
+    TextEncoderPolyfill.prototype.encode = function (str: string) {
+      const arr = new Uint8Array(str.length);
+      for (let i = 0; i < str.length; i++) {
+        arr[i] = str.charCodeAt(i) & 0xff;
+      }
+      return arr;
+    };
+    (window as any).TextEncoder = TextEncoderPolyfill;
+  }
+
+  if (typeof window.TextDecoder === 'undefined') {
+    const TextDecoderPolyfill = function () {};
+    TextDecoderPolyfill.prototype.decode = function (arr: Uint8Array) {
+      if (!arr) return '';
+      let str = '';
+      for (let i = 0; i < arr.length; i++) {
+        str += String.fromCharCode(arr[i]);
+      }
+      return str;
+    };
+    (window as any).TextDecoder = TextDecoderPolyfill;
+  }
+
+  // 7. ReadableStream polyfill (required by Next.js App Router HTML streaming/hydration)
+  if (typeof window.ReadableStream === 'undefined') {
+    const ReadableStreamPolyfill = function (this: any) {
+      // Dummy implementation
+    };
+    ReadableStreamPolyfill.prototype.getReader = function () {
+      return {
+        read: function () {
+          return Promise.resolve({ done: true, value: undefined });
+        },
+        releaseLock: function () {}
+      };
+    };
+    (window as any).ReadableStream = ReadableStreamPolyfill;
+  }
 }
 export {};

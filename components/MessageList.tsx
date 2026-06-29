@@ -76,6 +76,13 @@ export default function MessageList({ code }: MessageListProps) {
   useEffect(() => {
     if (initialLoading) return;
 
+    const isKindleOrKobo = typeof navigator !== 'undefined' && /Kindle|Kobo/i.test(navigator.userAgent);
+    if (isKindleOrKobo) {
+      console.log('Kindle/Kobo detected. Bypassing Realtime and using polling directly.');
+      setPollingActive(true);
+      return;
+    }
+
     let isSubscribed = false;
     let channel: RealtimeChannel | null = null;
 
