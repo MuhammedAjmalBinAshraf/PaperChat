@@ -1,8 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
-import { supabase } from '@/lib/supabase';
-import { RealtimeChannel } from '@supabase/supabase-js';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 
 export interface MessageType {
   id: string;
@@ -89,29 +88,36 @@ export default function MessageList({ code }: MessageListProps) {
     try {
       if (typeof window !== 'undefined' && 'WebSocket' in window && window.WebSocket) {
         // Set up Realtime subscription
-        channel = supabase
-          .channel(`room:${code}`)
-          .on(
-            'postgres_changes',
-            {
-              event: 'INSERT',
-              schema: 'public',
-              table: 'messages',
-              filter: `room_code=eq.${code}`,
-            },
-            (payload) => {
-              const newMsg = payload.new as MessageType;
-              setMessages((prev) => {
-                if (prev.some((m) => m.id === newMsg.id)) return prev;
-                return [...prev, newMsg];
+        import('@/lib/supabase')
+          .then(({ supabase }) => {
+            channel = supabase
+              .channel(`room:${code}`)
+              .on(
+                'postgres_changes',
+                {
+                  event: 'INSERT',
+                  schema: 'public',
+                  table: 'messages',
+                  filter: `room_code=eq.${code}`,
+                },
+                (payload) => {
+                  const newMsg = payload.new as MessageType;
+                  setMessages((prev) => {
+                    if (prev.some((m) => m.id === newMsg.id)) return prev;
+                    return [...prev, newMsg];
+                  });
+                }
+              )
+              .subscribe((status) => {
+                if (status === 'SUBSCRIBED') {
+                  isSubscribed = true;
+                  console.log('Supabase Realtime connected successfully.');
+                }
               });
-            }
-          )
-          .subscribe((status) => {
-            if (status === 'SUBSCRIBED') {
-              isSubscribed = true;
-              console.log('Supabase Realtime connected successfully.');
-            }
+          })
+          .catch((err) => {
+            console.warn('Failed to load Supabase dynamically:', err);
+            setPollingActive(true);
           });
       } else {
         console.log('WebSockets not supported in this browser. Activating polling.');

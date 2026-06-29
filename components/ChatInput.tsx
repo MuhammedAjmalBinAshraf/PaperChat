@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useRef, useState } from 'react';
-import { supabase } from '@/lib/supabase';
 import Button from './Button';
 
 interface ChatInputProps {
@@ -54,14 +53,17 @@ export default function ChatInput({ onSendMessage, roomCode }: ChatInputProps) {
       const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
       const filePath = `${roomCode}/${timestamp}_${safeName}`;
 
-      supabase.storage
-        .from('attachments')
-        .upload(filePath, file)
-        .then((uploadRes) => {
-          if (uploadRes.error) {
-            throw new Error(`File upload failed: ${uploadRes.error.message}`);
-          }
-          return supabase.storage.from('attachments').getPublicUrl(filePath);
+      import('@/lib/supabase')
+        .then(({ supabase }) => {
+          return supabase.storage
+            .from('attachments')
+            .upload(filePath, file)
+            .then((uploadRes) => {
+              if (uploadRes.error) {
+                throw new Error(`File upload failed: ${uploadRes.error.message}`);
+              }
+              return supabase.storage.from('attachments').getPublicUrl(filePath);
+            });
         })
         .then((urlData) => {
           const attachmentUrl = urlData.data.publicUrl;
