@@ -201,7 +201,6 @@ export default function ChatInput({ onSendMessage, roomCode }: ChatInputProps) {
         placeholder="Type a message... (Enter to send)"
         disabled={sending}
         className="w-full border border-[#333] text-base px-3 py-2 bg-white text-[#111] outline-none focus:border-[#1a3a6b] resize-none"
-        maxLength={1000}
       />
 
       {file && (

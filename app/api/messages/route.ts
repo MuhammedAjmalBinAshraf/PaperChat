@@ -72,10 +72,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Message body cannot be empty' }, { status: 400 });
     }
 
-    if (messageBody.length > 1000) {
-      return NextResponse.json({ error: 'Message body too long (max 1000 characters)' }, { status: 400 });
-    }
-
     // Check if the room exists
     const { data: room, error: roomError } = await supabaseServer
       .from('rooms')

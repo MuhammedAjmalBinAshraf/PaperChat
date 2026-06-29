@@ -44,6 +44,7 @@ export default function MessageList({ code }: MessageListProps) {
   const [messages, setMessages] = useState<MessageType[]>([]);
   const [initialLoading, setInitialLoading] = useState(true);
   const [currentUid, setCurrentUid] = useState('');
+  const [expandedMessages, setExpandedMessages] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     setCurrentUid(getUID());
@@ -291,6 +292,19 @@ export default function MessageList({ code }: MessageListProps) {
           {messages.map((message) => {
             const isSender = message.uid === currentUid;
             const initials = getInitials(message.display_name);
+            const isExpanded = !!expandedMessages[message.id];
+            const isLengthy = message.body.length > 300;
+
+            const toggleExpand = () => {
+              setExpandedMessages((prev) => ({
+                ...prev,
+                [message.id]: !prev[message.id],
+              }));
+            };
+
+            const displayText = isLengthy && !isExpanded
+              ? message.body.substring(0, 300) + '...'
+              : message.body;
 
             if (isSender) {
               return (
@@ -298,7 +312,16 @@ export default function MessageList({ code }: MessageListProps) {
                   <div className="flex flex-col items-end max-w-[75%]">
                     <div className="p-3 border border-[#1a3a6b] bg-white rounded-lg text-left text-base text-[#111] leading-relaxed break-words">
                       <span className="font-bold block text-base mb-1 text-[#1a3a6b]">Me</span>
-                      <div>{message.body}</div>
+                      <div className="whitespace-pre-wrap">{displayText}</div>
+                      {isLengthy && (
+                        <button
+                          type="button"
+                          onClick={toggleExpand}
+                          className="text-[#1a3a6b] underline font-bold mt-1 text-base min-h-12 flex items-center cursor-pointer active:bg-[#f0f0f0]"
+                        >
+                          {isExpanded ? 'Read less' : 'Read more'}
+                        </button>
+                      )}
                       {message.attachment_url && (
                         <div className="mt-2 p-2 border border-[#333] bg-[#f0f0f0] inline-block text-left text-base max-w-full">
                           📎{' '}
@@ -333,7 +356,16 @@ export default function MessageList({ code }: MessageListProps) {
                       <span className="font-bold block text-base mb-1 text-[#333]">
                         {message.display_name}
                       </span>
-                      <div>{message.body}</div>
+                      <div className="whitespace-pre-wrap">{displayText}</div>
+                      {isLengthy && (
+                        <button
+                          type="button"
+                          onClick={toggleExpand}
+                          className="text-[#1a3a6b] underline font-bold mt-1 text-base min-h-12 flex items-center cursor-pointer active:bg-[#e0e0e0]"
+                        >
+                          {isExpanded ? 'Read less' : 'Read more'}
+                        </button>
+                      )}
                       {message.attachment_url && (
                         <div className="mt-2 p-2 border border-[#333] bg-white inline-block text-left text-base max-w-full">
                           📎{' '}
