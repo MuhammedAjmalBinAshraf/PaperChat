@@ -49,7 +49,7 @@ export default function RoomPage({ params }: RoomPageProps) {
     verifyAndRegisterRoom();
   }, [code, router]);
 
-  const handleSendMessage = async (body: string) => {
+  const handleSendMessage = async (body: string, attachmentUrl?: string, attachmentName?: string) => {
     const uid = getUID();
     const currentName = getDisplayName() || 'Unknown Device';
 
@@ -63,6 +63,8 @@ export default function RoomPage({ params }: RoomPageProps) {
         uid,
         display_name: currentName,
         body,
+        attachment_url: attachmentUrl,
+        attachment_name: attachmentName,
       }),
     });
 
@@ -105,7 +107,7 @@ export default function RoomPage({ params }: RoomPageProps) {
 
       {/* Message Input */}
       <div className="shrink-0 mt-auto pt-2 bg-white">
-        <ChatInput onSendMessage={handleSendMessage} />
+        <ChatInput onSendMessage={handleSendMessage} roomCode={code} />
         {/* Simple back navigation helper below form for user convenience */}
         <div className="mt-4 text-center">
           <a href="/" className="text-sm text-[#666] underline">

@@ -46,6 +46,8 @@ create table messages (
   uid text not null,
   display_name text not null,
   body text not null,
+  attachment_url text,
+  attachment_name text,
   created_at timestamptz default now()
 );
 create index on messages(room_code, created_at desc);
@@ -65,6 +67,20 @@ create policy "Allow public insert access to messages" on messages for insert wi
 
 -- 4. Enable Supabase Realtime for messages table
 alter publication supabase_realtime add table messages;
+
+-- 5. Create Storage Bucket for Attachments
+insert into storage.buckets (id, name, public)
+values ('attachments', 'attachments', true)
+on conflict (id) do nothing;
+
+-- Add public policies to storage.objects for the attachments bucket
+create policy "Allow public select on attachments" 
+on storage.objects for select 
+using (bucket_id = 'attachments');
+
+create policy "Allow public insert on attachments" 
+on storage.objects for insert 
+with check (bucket_id = 'attachments');
 ```
 
 ---

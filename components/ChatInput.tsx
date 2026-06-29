@@ -1,30 +1,77 @@
 'use client';
 
 import React, { useRef, useState } from 'react';
+import { supabase } from '@/lib/supabase';
 import Button from './Button';
 
 interface ChatInputProps {
-  onSendMessage: (body: string) => Promise<void>;
+  onSendMessage: (body: string, attachmentUrl?: string, attachmentName?: string) => Promise<void>;
+  roomCode: string;
 }
 
-export default function ChatInput({ onSendMessage }: ChatInputProps) {
+export default function ChatInput({ onSendMessage, roomCode }: ChatInputProps) {
   const [message, setMessage] = useState('');
+  const [file, setFile] = useState<File | null>(null);
   const [sending, setSending] = useState(false);
+  const [uploadError, setUploadError] = useState('');
+  
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    const trimmed = message.trim();
-    if (!trimmed || sending) return;
+    
+    let trimmed = message.trim();
+    if (sending) return;
+    if (!trimmed && !file) return;
 
     setSending(true);
+    setUploadError('');
+
     try {
-      await onSendMessage(trimmed);
+      let attachmentUrl = '';
+      let attachmentName = '';
+
+      if (file) {
+        const timestamp = Date.now();
+        // Sanitize file name for URL safety
+        const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+        const filePath = `${roomCode}/${timestamp}_${safeName}`;
+
+        const { error } = await supabase.storage
+          .from('attachments')
+          .upload(filePath, file);
+
+        if (error) {
+          throw new Error(`File upload failed: ${error.message}`);
+        }
+
+        const { data: urlData } = supabase.storage
+          .from('attachments')
+          .getPublicUrl(filePath);
+
+        attachmentUrl = urlData.publicUrl;
+        attachmentName = file.name;
+
+        // If message body is empty, auto-populate with file name
+        if (!trimmed) {
+          trimmed = `Shared file: ${file.name}`;
+        }
+      }
+
+      await onSendMessage(trimmed, attachmentUrl, attachmentName);
       setMessage('');
-      // Keep focus on input for fast follow-up chats if browser supports it
+      setFile(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      
+      // Focus back to input
       textareaRef.current?.focus();
     } catch (error) {
       console.error('Failed to send message:', error);
+      const errMsg = error instanceof Error ? error.message : 'Failed to send message.';
+      setUploadError(errMsg);
     } finally {
       setSending(false);
     }
@@ -38,7 +85,13 @@ export default function ChatInput({ onSendMessage }: ChatInputProps) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-2">
+    <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-3">
+      {uploadError && (
+        <div className="text-base text-red-700 font-bold border border-red-700 p-2 bg-red-50">
+          {uploadError}
+        </div>
+      )}
+
       <textarea
         ref={textareaRef}
         rows={2}
@@ -50,9 +103,47 @@ export default function ChatInput({ onSendMessage }: ChatInputProps) {
         className="w-full border border-[#333] text-base px-3 py-2 bg-white text-[#111] outline-none focus:border-[#1a3a6b] resize-none"
         maxLength={1000}
       />
-      <Button type="submit" disabled={sending || !message.trim()}>
-        {sending ? 'Sending...' : 'Send'}
-      </Button>
+
+      {file && (
+        <div className="flex justify-between items-center p-2 border border-[#333] bg-[#f0f0f0] text-base">
+          <span className="truncate pr-2 font-bold">📎 {file.name} ({(file.size / 1024).toFixed(1)} KB)</span>
+          <button
+            type="button"
+            onClick={() => {
+              setFile(null);
+              if (fileInputRef.current) fileInputRef.current.value = '';
+            }}
+            className="text-red-700 underline font-bold px-2 py-1 min-h-12 flex items-center cursor-pointer active:bg-red-50"
+          >
+            Remove
+          </button>
+        </div>
+      )}
+
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={sending}
+          className="w-1/2 h-12 bg-[#f0f0f0] text-[#111] border border-[#333] text-base font-medium cursor-pointer active:bg-[#e0e0e0] flex items-center justify-center"
+        >
+          Attach File
+        </button>
+        <Button type="submit" disabled={sending || (!message.trim() && !file)} className="w-1/2">
+          {sending ? 'Sending...' : 'Send'}
+        </Button>
+      </div>
+
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={(e) => {
+          if (e.target.files && e.target.files[0]) {
+            setFile(e.target.files[0]);
+          }
+        }}
+        className="hidden"
+      />
     </form>
   );
 }

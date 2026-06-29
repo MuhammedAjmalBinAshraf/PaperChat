@@ -62,7 +62,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { code, uid, display_name, body: messageBody } = body;
+    const { code, uid, display_name, body: messageBody, attachment_url, attachment_name } = body;
 
     if (!code || !uid || !display_name || !messageBody) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
@@ -95,6 +95,8 @@ export async function POST(request: Request) {
         uid,
         display_name: display_name.trim(),
         body: messageBody.trim(),
+        attachment_url: attachment_url || null,
+        attachment_name: attachment_name || null,
       });
 
     if (insertError) {

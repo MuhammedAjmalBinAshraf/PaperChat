@@ -10,6 +10,8 @@ export interface MessageType {
   display_name: string;
   body: string;
   created_at: string;
+  attachment_url?: string | null;
+  attachment_name?: string | null;
 }
 
 interface MessageListProps {
@@ -215,6 +217,19 @@ export default function MessageList({ code }: MessageListProps) {
               <div className="pr-12 text-left">
                 <strong className="font-bold">[{message.display_name}]</strong>{' '}
                 {message.body}
+                {message.attachment_url && (
+                  <div className="mt-2 p-2 border border-[#333] bg-[#f0f0f0] inline-block text-left text-base max-w-full">
+                    📎{' '}
+                    <a
+                      href={message.attachment_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline text-[#1a3a6b] font-medium break-all"
+                    >
+                      {message.attachment_name || 'View Attachment'}
+                    </a>
+                  </div>
+                )}
               </div>
             </div>
           ))}
