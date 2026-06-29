@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { RealtimeChannel } from '@supabase/supabase-js';
 
 export interface MessageType {
   id: string;
@@ -71,46 +72,69 @@ export default function MessageList({ code }: MessageListProps) {
     if (initialLoading) return;
 
     let isSubscribed = false;
+    let channel: RealtimeChannel | null = null;
 
-    // Set up Realtime subscription
-    const channel = supabase
-      .channel(`room:${code}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messages',
-          filter: `room_code=eq.${code}`,
-        },
-        (payload) => {
-          const newMsg = payload.new as MessageType;
-          setMessages((prev) => {
-            if (prev.some((m) => m.id === newMsg.id)) return prev;
-            return [...prev, newMsg];
+    try {
+      if (typeof window !== 'undefined' && 'WebSocket' in window && window.WebSocket) {
+        // Set up Realtime subscription
+        channel = supabase
+          .channel(`room:${code}`)
+          .on(
+            'postgres_changes',
+            {
+              event: 'INSERT',
+              schema: 'public',
+              table: 'messages',
+              filter: `room_code=eq.${code}`,
+            },
+            (payload) => {
+              const newMsg = payload.new as MessageType;
+              setMessages((prev) => {
+                if (prev.some((m) => m.id === newMsg.id)) return prev;
+                return [...prev, newMsg];
+              });
+            }
+          )
+          .subscribe((status) => {
+            if (status === 'SUBSCRIBED') {
+              isSubscribed = true;
+              console.log('Supabase Realtime connected successfully.');
+            }
           });
-        }
-      )
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          isSubscribed = true;
-          console.log('Supabase Realtime connected successfully.');
-        }
-      });
+      } else {
+        console.log('WebSockets not supported in this browser. Activating polling.');
+        setPollingActive(true);
+      }
+    } catch (err) {
+      console.warn('Failed to initialize Supabase Realtime channel:', err);
+      setPollingActive(true);
+    }
 
     // 3-second connection timeout check
     const connectionTimeout = setTimeout(() => {
       if (!isSubscribed) {
-        console.log('Supabase Realtime connection timed out. Activating polling.');
+        console.log('Supabase Realtime connection timed out or not supported. Activating polling.');
         setPollingActive(true);
         // Unsubscribe from WebSocket to save client resources
-        channel.unsubscribe();
+        try {
+          if (channel) {
+            channel.unsubscribe();
+          }
+        } catch (err) {
+          console.warn('Error unsubscribing channel on timeout:', err);
+        }
       }
     }, 3000);
 
     return () => {
       clearTimeout(connectionTimeout);
-      channel.unsubscribe();
+      try {
+        if (channel) {
+          channel.unsubscribe();
+        }
+      } catch (err) {
+        console.warn('Error unsubscribing channel on cleanup:', err);
+      }
     };
   }, [code, initialLoading]);
 
@@ -151,7 +175,22 @@ export default function MessageList({ code }: MessageListProps) {
     if (initialLoading) return;
 
     if (lastMessageId !== prevLastMessageIdRef.current) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
+      try {
+        const el = messagesEndRef.current;
+        if (el) {
+          if (typeof el.scrollIntoView === 'function') {
+            el.scrollIntoView();
+          } else {
+            // fallback: direct container scrolling
+            const parent = el.parentElement;
+            if (parent) {
+              parent.scrollTop = parent.scrollHeight;
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('Scroll failed:', err);
+      }
       prevLastMessageIdRef.current = lastMessageId;
     }
   }, [lastMessageId, initialLoading]);
