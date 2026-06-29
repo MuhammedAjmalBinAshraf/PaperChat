@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import type { RealtimeChannel } from '@supabase/supabase-js';
+import { getUID } from '@/lib/storage';
 
 export interface MessageType {
   id: string;
@@ -29,9 +30,24 @@ function formatTime(isoString: string): string {
   }
 }
 
+function getInitials(name: string): string {
+  if (!name) return '??';
+  const cleanName = name.replace(/[^\w\s]/g, '').trim();
+  const parts = cleanName.split(/\s+/);
+  if (parts.length >= 2 && parts[0] && parts[1]) {
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  }
+  return cleanName.substring(0, 2).toUpperCase();
+}
+
 export default function MessageList({ code }: MessageListProps) {
   const [messages, setMessages] = useState<MessageType[]>([]);
   const [initialLoading, setInitialLoading] = useState(true);
+  const [currentUid, setCurrentUid] = useState('');
+
+  useEffect(() => {
+    setCurrentUid(getUID());
+  }, []);
   const [pollingActive, setPollingActive] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [loadingEarlier, setLoadingEarlier] = useState(false);
@@ -271,34 +287,75 @@ export default function MessageList({ code }: MessageListProps) {
           No messages yet. Say hello!
         </div>
       ) : (
-        <div className="flex flex-col">
-          {messages.map((message) => (
-            <div
-              key={message.id}
-              className="py-2 border-b border-[#e0e0e0] text-base leading-relaxed clear-both"
-            >
-              <span className="float-right text-xs text-[#666] pt-1">
-                {formatTime(message.created_at)}
-              </span>
-              <div className="pr-12 text-left">
-                <strong className="font-bold">[{message.display_name}]</strong>{' '}
-                {message.body}
-                {message.attachment_url && (
-                  <div className="mt-2 p-2 border border-[#333] bg-[#f0f0f0] inline-block text-left text-base max-w-full">
-                    📎{' '}
-                    <a
-                      href={message.attachment_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="underline text-[#1a3a6b] font-medium break-all"
-                    >
-                      {message.attachment_name || 'View Attachment'}
-                    </a>
+        <div className="flex flex-col gap-4 mt-2">
+          {messages.map((message) => {
+            const isSender = message.uid === currentUid;
+            const initials = getInitials(message.display_name);
+
+            if (isSender) {
+              return (
+                <div key={message.id} className="flex justify-end items-start gap-2 w-full">
+                  <div className="flex flex-col items-end max-w-[75%]">
+                    <div className="p-3 border border-[#1a3a6b] bg-white rounded-lg text-left text-base text-[#111] leading-relaxed break-words">
+                      <span className="font-bold block text-base mb-1 text-[#1a3a6b]">Me</span>
+                      <div>{message.body}</div>
+                      {message.attachment_url && (
+                        <div className="mt-2 p-2 border border-[#333] bg-[#f0f0f0] inline-block text-left text-base max-w-full">
+                          📎{' '}
+                          <a
+                            href={message.attachment_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="underline text-[#1a3a6b] font-medium break-all"
+                          >
+                            {message.attachment_name || 'View Attachment'}
+                          </a>
+                        </div>
+                      )}
+                      <div className="text-right text-base text-[#666] mt-1">
+                        {formatTime(message.created_at)}
+                      </div>
+                    </div>
                   </div>
-                )}
-              </div>
-            </div>
-          ))}
+                  <div className="w-10 h-10 rounded-full bg-[#1a3a6b] text-white flex items-center justify-center font-bold text-base shrink-0 select-none">
+                    {initials}
+                  </div>
+                </div>
+              );
+            } else {
+              return (
+                <div key={message.id} className="flex justify-start items-start gap-2 w-full">
+                  <div className="w-10 h-10 rounded-full bg-[#333] text-white flex items-center justify-center font-bold text-base shrink-0 select-none">
+                    {initials}
+                  </div>
+                  <div className="flex flex-col items-start max-w-[75%]">
+                    <div className="p-3 bg-[#f0f0f0] border border-[#e0e0e0] rounded-lg text-left text-base text-[#111] leading-relaxed break-words">
+                      <span className="font-bold block text-base mb-1 text-[#333]">
+                        {message.display_name}
+                      </span>
+                      <div>{message.body}</div>
+                      {message.attachment_url && (
+                        <div className="mt-2 p-2 border border-[#333] bg-white inline-block text-left text-base max-w-full">
+                          📎{' '}
+                          <a
+                            href={message.attachment_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="underline text-[#1a3a6b] font-medium break-all"
+                          >
+                            {message.attachment_name || 'View Attachment'}
+                          </a>
+                        </div>
+                      )}
+                      <div className="text-right text-base text-[#666] mt-1">
+                        {formatTime(message.created_at)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            }
+          })}
         </div>
       )}
       <div ref={messagesEndRef} />
