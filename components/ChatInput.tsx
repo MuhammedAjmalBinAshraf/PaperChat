@@ -49,27 +49,33 @@ export default function ChatInput({ onSendMessage, roomCode }: ChatInputProps) {
     };
 
     if (file) {
-      const timestamp = Date.now();
-      const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-      const filePath = `${roomCode}/${timestamp}_${safeName}`;
+      if (file.size > 4 * 1024 * 1024) {
+        setUploadError('File is too large (max 4MB).');
+        setSending(false);
+        return;
+      }
 
-      import('@/lib/supabase')
-        .then(({ supabase }) => {
-          return supabase.storage
-            .from('attachments')
-            .upload(filePath, file)
-            .then((uploadRes) => {
-              if (uploadRes.error) {
-                throw new Error(`File upload failed: ${uploadRes.error.message}`);
-              }
-              return supabase.storage.from('attachments').getPublicUrl(filePath);
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('roomCode', roomCode);
+
+      fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      })
+        .then((res) => {
+          if (!res.ok) {
+            return res.json().then((errData) => {
+              throw new Error(errData.error || 'Upload failed');
             });
+          }
+          return res.json();
         })
-        .then((urlData) => {
-          const attachmentUrl = urlData.data.publicUrl;
-          const attachmentName = file.name;
+        .then((data) => {
+          const attachmentUrl = data.url;
+          const attachmentName = data.name;
           if (!trimmed) {
-            trimmed = `Shared file: ${file.name}`;
+            trimmed = `Shared file: ${attachmentName}`;
           }
           sendMessage(attachmentUrl, attachmentName);
         })
